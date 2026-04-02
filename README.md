@@ -1,3 +1,5 @@
+<img width="1423" height="752" alt="bookmark-to-obsidian" src="https://github.com/user-attachments/assets/77d31443-38af-4628-9a51-d3ca1750076a" />
+
 # bookmark-to-obsidian
 
 Browser bookmarks to Obsidian vault notes. Topic classification, wikilinks, YAML frontmatter, folder routing. No API keys. Starting with Twitter/X, with GitHub, YouTube, and more coming.
