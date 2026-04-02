@@ -1,0 +1,91 @@
+# bookmark-to-obsidian — News/current events config example
+# Optimized for journalists, analysts, and anyone tracking current events.
+
+vault:
+  path: "~/Documents/ObsidianVault"
+  notes_folder: "News"
+  default_category: "General"
+
+bookmarks:
+  dir: "~/Documents/twitter-bookmarks"
+  batch_size: 15
+  batch_delay_seconds: 1
+
+categories:
+  - name: "Politics"
+    keywords:
+      - "congress"
+      - "senate"
+      - "white house"
+      - "president"
+      - "election"
+      - "policy"
+      - "government"
+      - "legislation"
+      - "democrat"
+      - "republican"
+
+  - name: "Technology"
+    keywords:
+      - "apple"
+      - "google"
+      - "microsoft"
+      - "meta"
+      - "openai"
+      - "startup"
+      - "silicon valley"
+      - "ipo"
+      - "acquisition"
+      - "layoffs"
+
+  - name: "Finance"
+    keywords:
+      - "stock"
+      - "market"
+      - "fed"
+      - "inflation"
+      - "gdp"
+      - "earnings"
+      - "crypto"
+      - "bitcoin"
+      - "recession"
+      - "interest rate"
+
+  - name: "Science"
+    keywords:
+      - "climate"
+      - "nasa"
+      - "study"
+      - "published"
+      - "researchers"
+      - "discovered"
+      - "breakthrough"
+      - "experiment"
+      - "vaccine"
+      - "species"
+
+  - name: "World"
+    keywords:
+      - "ukraine"
+      - "china"
+      - "eu"
+      - "nato"
+      - "war"
+      - "sanctions"
+      - "treaty"
+      - "summit"
+      - "conflict"
+      - "international"
+
+wikilinks: {}
+
+enrichment:
+  enabled: true
+  max_links_per_note: 2
+
+template:
+  base_tags:
+    - "type/tweet"
+    - "source/news"
+  include_engagement: true
+  include_my_notes: true

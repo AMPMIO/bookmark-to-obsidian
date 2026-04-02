@@ -1,0 +1,11 @@
+{
+  "name": "bookmark-to-obsidian",
+  "version": "1.0.0",
+  "description": "Turn Twitter/X bookmarks into structured Obsidian vault notes",
+  "scripts": {
+    "install-browser": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  }
+}

@@ -1,0 +1,6 @@
+# Minimal config — only the vault path is required.
+# Everything else uses defaults.
+# Tweets land in: ~/Documents/ObsidianVault/Resources/Inbox/
+
+vault:
+  path: "~/Documents/ObsidianVault"

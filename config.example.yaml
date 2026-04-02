@@ -1,0 +1,112 @@
+# bookmark-to-obsidian configuration
+# Copy this file to config.yaml and fill in your values.
+# Run ./bookmark-to-obsidian setup for an interactive wizard instead.
+
+# ── Vault ────────────────────────────────────────────────
+vault:
+  path: "~/Documents/ObsidianVault"   # Path to your Obsidian vault root
+  notes_folder: "Resources"           # Subfolder where tweet notes are written
+  default_category: "Inbox"           # Fallback folder when no category matches
+
+# ── Bookmarks ────────────────────────────────────────────
+bookmarks:
+  dir: "~/Documents/twitter-bookmarks"      # Working directory for bookmark files
+  file: "bookmarks.txt"                     # Input: one tweet URL per line
+  processed_file: "bookmarks-processed.txt" # Archive: URLs already processed
+
+# ── Processing ───────────────────────────────────────────
+processing:
+  batch_size: 10           # Tweets to process before pausing
+  batch_delay_seconds: 2   # Seconds to pause between batches (rate limiting)
+
+# ── Categories ───────────────────────────────────────────
+# Tweets are classified into folders by matching keywords against tweet text.
+# Categories are checked in order — first match wins.
+# Folder is created automatically if it doesn't exist.
+# Falls back to vault.default_category if nothing matches.
+categories:
+  - name: "AI Tools"
+    keywords:
+      - "open-source"
+      - "cli"
+      - "api"
+      - "github"
+      - "tool"
+      - "library"
+      - "sdk"
+      - "framework"
+
+  - name: "Web Development"
+    keywords:
+      - "react"
+      - "nextjs"
+      - "typescript"
+      - "javascript"
+      - "frontend"
+      - "css"
+      - "html"
+      - "node"
+
+  - name: "AI Research"
+    keywords:
+      - "paper"
+      - "arxiv"
+      - "research"
+      - "benchmark"
+      - "dataset"
+      - "model"
+      - "llm"
+      - "neural"
+
+  - name: "Productivity"
+    keywords:
+      - "workflow"
+      - "automation"
+      - "obsidian"
+      - "notion"
+      - "pkm"
+      - "note-taking"
+      - "productivity"
+
+  # Add your own categories here. Examples:
+  # - name: "Design"
+  #   keywords:
+  #     - "figma"
+  #     - "ui"
+  #     - "ux"
+  #     - "design"
+
+# ── Wikilinks (optional) ─────────────────────────────────
+# Entity names that will be wrapped in [[links]] when they appear in tweet text.
+# Supports two formats:
+#
+# Dict format (entity → link target):
+#   wikilinks:
+#     "React": "[[React Notes]]"
+#     "TypeScript": "[[TypeScript]]"
+#
+# List format (entity name only, defaults to [[entity]]):
+#   wikilinks:
+#     - entity: "React"
+#     - entity: "TypeScript"
+#
+# Leave empty if you don't use wikilinks — only useful if these pages
+# actually exist in your vault.
+wikilinks: {}
+
+# ── Enrichment ───────────────────────────────────────────
+# After processing each tweet, fetch linked GitHub/blog URLs via Jina Reader
+# and append as a "## Linked Content" section in the note.
+# Set enabled: false to disable (faster, less content).
+enrichment:
+  enabled: true
+  max_links_per_note: 3    # Max number of linked URLs to fetch per note
+
+# ── Note Template ────────────────────────────────────────
+template:
+  base_tags:               # Tags added to every note's frontmatter
+    - "type/tweet"
+    - "source/twitter"
+  include_engagement: true  # Show 💬🔁❤️👁🔖 engagement stats line
+  include_my_notes: true    # Add empty "## My Notes" section at end
+  distillation_start: 0     # Initial value for the distillation frontmatter field

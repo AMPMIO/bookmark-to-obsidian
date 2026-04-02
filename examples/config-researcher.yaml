@@ -1,0 +1,80 @@
+# Researcher config
+# Good for academics, analysts, and knowledge workers who bookmark papers,
+# data, and long-form threads.
+
+vault:
+  path: "~/Documents/ResearchVault"
+  notes_folder: "Sources"
+  default_category: "Misc"
+
+bookmarks:
+  dir: "~/Documents/twitter-bookmarks"
+  file: "bookmarks.txt"
+  processed_file: "bookmarks-processed.txt"
+
+processing:
+  batch_size: 10
+  batch_delay_seconds: 2
+
+categories:
+  - name: "Papers"
+    keywords:
+      - "arxiv"
+      - "paper"
+      - "preprint"
+      - "we propose"
+      - "we introduce"
+      - "our method"
+      - "ablation"
+      - "sota"
+      - "state-of-the-art"
+
+  - name: "Datasets"
+    keywords:
+      - "dataset"
+      - "benchmark"
+      - "evaluation set"
+      - "training data"
+      - "annotation"
+      - "labeled"
+      - "ground truth"
+
+  - name: "Methods"
+    keywords:
+      - "algorithm"
+      - "architecture"
+      - "technique"
+      - "approach"
+      - "framework"
+      - "pipeline"
+      - "method"
+      - "model"
+
+  - name: "News"
+    keywords:
+      - "launch"
+      - "release"
+      - "announce"
+      - "funding"
+      - "raised"
+      - "acqui"
+      - "partnership"
+      - "joins"
+
+  - name: "Threads"
+    keywords:
+      - "thread"
+      - "1/"
+      - "(1/"
+      - "[thread]"
+      - "a thread"
+
+wikilinks: []
+
+template:
+  base_tags:
+    - "type/tweet"
+    - "source/twitter"
+  include_engagement: true
+  include_my_notes: true
+  distillation_start: 0

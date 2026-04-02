@@ -1,0 +1,98 @@
+# Developer / AI-focused config
+# Good starting point if you bookmark mostly tech, AI, and open-source content.
+
+vault:
+  path: "~/Documents/DevVault"
+  notes_folder: "Resources"
+  default_category: "Tech"
+
+bookmarks:
+  dir: "~/Documents/twitter-bookmarks"
+  file: "bookmarks.txt"
+  processed_file: "bookmarks-processed.txt"
+
+processing:
+  batch_size: 10
+  batch_delay_seconds: 2
+
+categories:
+  - name: "Claude Code"
+    keywords:
+      - "claude code"
+      - "cursor"
+      - "windsurf"
+      - "copilot"
+      - "aider"
+      - "cline"
+      - "coding agent"
+      - "skills.md"
+      - "claude.md"
+      - "mcp server"
+
+  - name: "AI Agents"
+    keywords:
+      - "agent"
+      - "multi-agent"
+      - "agentic"
+      - "crewai"
+      - "autogen"
+      - "langgraph"
+      - "tool use"
+      - "function calling"
+      - "autonomous"
+      - "orchestration"
+
+  - name: "AI Tools"
+    keywords:
+      - "model"
+      - "llm"
+      - "gpt"
+      - "claude"
+      - "gemini"
+      - "llama"
+      - "mistral"
+      - "anthropic"
+      - "openai"
+      - "fine-tun"
+      - "inference"
+      - "rag"
+      - "embedding"
+      - "diffusion"
+      - "benchmark"
+
+  - name: "Open Source"
+    keywords:
+      - "open-source"
+      - "github"
+      - "repo"
+      - "library"
+      - "framework"
+      - "sdk"
+      - "cli"
+      - "self-hosted"
+
+  - name: "Web Dev"
+    keywords:
+      - "react"
+      - "nextjs"
+      - "typescript"
+      - "javascript"
+      - "frontend"
+      - "css"
+      - "vercel"
+      - "bun"
+      - "deno"
+
+wikilinks: []
+# Uncomment and add your own vault entities:
+# - entity: "React"
+# - entity: "TypeScript"
+# - entity: "Anthropic"
+
+template:
+  base_tags:
+    - "type/tweet"
+    - "source/twitter"
+  include_engagement: true
+  include_my_notes: true
+  distillation_start: 0
