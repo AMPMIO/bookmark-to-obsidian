@@ -20,10 +20,16 @@ processing:
   batch_delay_seconds: 2   # Seconds to pause between batches (rate limiting)
 
 # ── Categories ───────────────────────────────────────────
-# Tweets are classified into folders by matching keywords against tweet text.
-# Categories are checked in order — first match wins.
-# Folder is created automatically if it doesn't exist.
-# Falls back to vault.default_category if nothing matches.
+# Tweets are classified into folders by keyword matching against tweet text.
+# Categories are checked in order — first match wins. Falls back to default_category.
+# Folder created automatically if it doesn't exist.
+#
+# Optional: each category can include a `tags` list. These tags are merged with
+# template.base_tags (below) in the note's frontmatter — no duplicates.
+#
+# Example: tweet matching "AI Research" with base_tags [type/tweet, source/twitter]
+# and category tags [topic/ai, topic/research] produces:
+#   tags: [type/tweet, source/twitter, topic/ai, topic/research]
 categories:
   - name: "AI Tools"
     keywords:
@@ -35,6 +41,9 @@ categories:
       - "library"
       - "sdk"
       - "framework"
+    tags:
+      - "topic/ai"
+      - "topic/tools"
 
   - name: "Web Development"
     keywords:
@@ -46,6 +55,8 @@ categories:
       - "css"
       - "html"
       - "node"
+    tags:
+      - "topic/webdev"
 
   - name: "AI Research"
     keywords:
@@ -57,6 +68,9 @@ categories:
       - "model"
       - "llm"
       - "neural"
+    tags:
+      - "topic/ai"
+      - "topic/research"
 
   - name: "Productivity"
     keywords:
@@ -67,31 +81,40 @@ categories:
       - "pkm"
       - "note-taking"
       - "productivity"
+    tags:
+      - "topic/productivity"
 
-  # Add your own categories here. Examples:
+  # Add your own categories here. The `tags` field is optional.
   # - name: "Design"
   #   keywords:
   #     - "figma"
   #     - "ui"
   #     - "ux"
   #     - "design"
+  #   tags:
+  #     - "topic/design"
 
 # ── Wikilinks (optional) ─────────────────────────────────
-# Entity names that will be wrapped in [[links]] when they appear in tweet text.
-# Supports two formats:
+# Entity names wrapped in [[links]] when they appear in tweet text.
+# Entities are matched as whole words (regex \b boundary). Applied longest-first
+# so "React Native" is linked before "React" — prevents partial-match collisions.
+# Only the first occurrence of each entity per note is linked.
+# Only useful if these pages actually exist in your vault.
 #
 # Dict format (entity → link target):
 #   wikilinks:
-#     "React": "[[React Notes]]"
+#     "React Native": "[[React Native]]"
+#     "React": "[[React MOC]]"        # safe: "React Native" matched first
 #     "TypeScript": "[[TypeScript]]"
 #
-# List format (entity name only, defaults to [[entity]]):
+# List format (entity only, auto-wraps in [[entity]]):
 #   wikilinks:
+#     - entity: "React Native"
 #     - entity: "React"
+#       target: "[[React MOC]]"       # optional override
 #     - entity: "TypeScript"
 #
-# Leave empty if you don't use wikilinks — only useful if these pages
-# actually exist in your vault.
+# Leave empty if you don't use wikilinks:
 wikilinks: {}
 
 # ── Enrichment ───────────────────────────────────────────
@@ -107,6 +130,8 @@ template:
   base_tags:               # Tags added to every note's frontmatter
     - "type/tweet"
     - "source/twitter"
+  # Per-category tags (defined above) are merged with base_tags automatically.
+  # No changes needed here to use that feature.
   include_engagement: true  # Show 💬🔁❤️👁🔖 engagement stats line
   include_my_notes: true    # Add empty "## My Notes" section at end
   distillation_start: 0     # Initial value for the distillation frontmatter field

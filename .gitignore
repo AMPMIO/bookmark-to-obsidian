@@ -27,3 +27,4 @@ __pycache__/
 # Temp files
 /tmp/
 *.tmp
+.lab/
