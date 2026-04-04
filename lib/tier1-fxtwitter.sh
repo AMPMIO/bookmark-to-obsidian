@@ -14,8 +14,13 @@ tier1_fetch() {
   username=$(echo "$url" | sed -E 's|https?://[^/]+/([^/]+)/status/[0-9]+.*|\1|')
   tweet_id=$(echo "$url"  | sed -E 's|https?://[^/]+/[^/]+/status/([0-9]+).*|\1|')
 
+  # Validate parsed values look like a username and numeric tweet ID
   if [ -z "$username" ] || [ -z "$tweet_id" ]; then
     echo "tier1: Could not parse URL: $url" >&2
+    return 1
+  fi
+  if ! echo "$tweet_id" | grep -qE '^[0-9]+$'; then
+    echo "tier1: Tweet ID is not numeric in URL: $url" >&2
     return 1
   fi
 
@@ -24,11 +29,13 @@ tier1_fetch() {
 
   [ -z "$response" ] && return 1
 
-  # Check for API error response
-  code=$(echo "$response" | python3 -c \
-    "import json,sys; print(json.load(sys.stdin).get('code',200))" 2>/dev/null || echo "200")
-  if [ "$code" != "200" ] && [ "$code" != "0" ]; then
-    echo "tier1: FxTwitter returned code $code for: $url" >&2
+  # Verify response is valid JSON with a tweet object
+  if ! echo "$response" | python3 -c "import json,sys; d=json.load(sys.stdin); assert 'tweet' in d" \
+      2>/dev/null; then
+    # Could be an error response — extract code if present
+    code=$(echo "$response" | python3 -c \
+      "import json,sys; print(json.load(sys.stdin).get('code','unknown'))" 2>/dev/null || echo "unknown")
+    echo "tier1: FxTwitter returned no tweet data (code=$code) for: $url" >&2
     return 1
   fi
 

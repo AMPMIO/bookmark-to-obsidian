@@ -18,7 +18,7 @@ from pathlib import Path
 
 
 def _expand(path: str) -> str:
-    return str(Path(os.path.expanduser(path)).expanduser())
+    return str(Path(path).expanduser())
 
 
 def _parse_wikilinks(raw) -> list:
@@ -53,6 +53,52 @@ def _parse_wikilinks(raw) -> list:
                 result.append({"entity": item, "target": f"[[{item}]]"})
         return result
     return []
+
+
+def _validate(cfg: dict, config_path: str) -> None:
+    """Validate config values and raise ValueError with clear messages."""
+    errors = []
+
+    # vault.path is required and must not be empty after expansion
+    if not cfg.get("vault_path"):
+        errors.append("vault.path is required and cannot be empty")
+
+    # batch_size must be a positive integer
+    bs = cfg.get("batch_size", 0)
+    if not isinstance(bs, int) or bs < 1:
+        errors.append(f"processing.batch_size must be a positive integer (got {bs!r})")
+
+    # batch_delay must be non-negative
+    bd = cfg.get("batch_delay", 0)
+    if not isinstance(bd, (int, float)) or bd < 0:
+        errors.append(f"processing.batch_delay_seconds must be >= 0 (got {bd!r})")
+
+    # max_links_per_note must be 0–20
+    ml = cfg.get("max_links_per_note", 0)
+    if not isinstance(ml, int) or ml < 0 or ml > 20:
+        errors.append(f"enrichment.max_links_per_note must be 0–20 (got {ml!r})")
+
+    # categories must be a list of dicts with 'name' and 'keywords' keys
+    for i, cat in enumerate(cfg.get("categories", [])):
+        if not isinstance(cat, dict):
+            errors.append(f"categories[{i}] must be a mapping with 'name' and 'keywords'")
+            continue
+        if not cat.get("name"):
+            errors.append(f"categories[{i}].name is required and cannot be empty")
+        kws = cat.get("keywords", [])
+        if not isinstance(kws, list):
+            errors.append(f"categories[{i}].keywords must be a list")
+        cat_tags = cat.get("tags")
+        if cat_tags is not None and not isinstance(cat_tags, list):
+            errors.append(f"categories[{i}].tags must be a list if provided (got {type(cat_tags).__name__})")
+
+    if errors:
+        msg = "\n".join(f"  - {e}" for e in errors)
+        print(
+            f"Error: Invalid config ({config_path}):\n{msg}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 def load_config(config_path: str = None) -> dict:
@@ -98,7 +144,28 @@ def load_config(config_path: str = None) -> dict:
     wikilinks  = _parse_wikilinks(raw.get("wikilinks") or [])
     base_tags  = template.get("base_tags", ["type/tweet", "source/twitter"])
 
-    return {
+    # Safe int/float conversion with fallback and error capture
+    try:
+        batch_size = int(processing.get("batch_size", 10))
+    except (ValueError, TypeError):
+        batch_size = -1  # will fail validation
+
+    try:
+        batch_delay = float(processing.get("batch_delay_seconds", 2))
+    except (ValueError, TypeError):
+        batch_delay = -1.0  # will fail validation
+
+    try:
+        max_links = int(enrichment.get("max_links_per_note", 3))
+    except (ValueError, TypeError):
+        max_links = -1  # will fail validation
+
+    try:
+        distillation_start = int(template.get("distillation_start", 0))
+    except (ValueError, TypeError):
+        distillation_start = 0
+
+    cfg = {
         # Vault
         "vault_path":        _expand(vault.get("path", "~/Documents/ObsidianVault")),
         "notes_folder":      vault.get("notes_folder", "Resources"),
@@ -108,11 +175,11 @@ def load_config(config_path: str = None) -> dict:
         "bookmarks_file":    os.path.join(bookmarks_dir, bookmarks_file),
         "processed_file":    os.path.join(bookmarks_dir, processed_file),
         # Processing
-        "batch_size":        int(processing.get("batch_size", 10)),
-        "batch_delay":       float(processing.get("batch_delay_seconds", 2)),
+        "batch_size":        batch_size,
+        "batch_delay":       batch_delay,
         # Enrichment
         "enrichment_enabled":   bool(enrichment.get("enabled", True)),
-        "max_links_per_note":   int(enrichment.get("max_links_per_note", 3)),
+        "max_links_per_note":   max_links,
         # Categories: list of {"name": str, "keywords": [str]}
         "categories":        categories,
         # Wikilinks: list of {"entity": str, "target": str}
@@ -121,8 +188,11 @@ def load_config(config_path: str = None) -> dict:
         "base_tags":              base_tags,
         "include_engagement":     bool(template.get("include_engagement", True)),
         "include_my_notes":       bool(template.get("include_my_notes", True)),
-        "distillation_start":     int(template.get("distillation_start", 0)),
+        "distillation_start":     distillation_start,
     }
+
+    _validate(cfg, config_path)
+    return cfg
 
 
 def export_for_shell(config_path: str = None):

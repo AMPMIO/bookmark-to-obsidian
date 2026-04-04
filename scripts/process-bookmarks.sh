@@ -60,14 +60,29 @@ fi
 log()  { echo "[$(date +%H:%M:%S)] $*"; }
 warn() { echo "[$(date +%H:%M:%S)] WARNING: $*" >&2; }
 
+# Normalize a tweet URL: twitter.com → x.com, strip whitespace
+normalize_url() {
+  echo "$1" | sed 's|twitter\.com|x.com|g' | tr -d '[:space:]'
+}
+
+# Build set of known vault URLs, normalized for comparison
 build_known_urls() {
   grep -rh "^source:" "$VAULT_ROOT" 2>/dev/null \
-    | sed "s/source: [\"']//;s/[\"']//" \
+    | sed "s/source: *[\"']*//;s/[\"']*$//" \
+    | sed 's|twitter\.com|x.com|g' \
+    | tr -d '[:space:]' \
     | sort -u || true
 }
 
 sanitize_filename() {
   echo "$1" | sed 's/[\/\\:*?"<>|]/-/g' | sed 's/  */ /g' | cut -c1-80
+}
+
+# Safe mktemp with explicit error
+safe_mktemp() {
+  local f
+  f=$(mktemp) || { warn "mktemp failed — /tmp may be full"; return 1; }
+  echo "$f"
 }
 
 # ── Tiered fetch ──────────────────────────────────────────
@@ -102,7 +117,7 @@ process_tweet() {
   local url="$1" index="$2" total="$3"
 
   local tmpdata
-  tmpdata=$(mktemp)
+  tmpdata=$(safe_mktemp) || return 1
 
   if ! fetch_tweet_data "$url" "$tmpdata"; then
     warn "[$index/$total] All tiers failed: $url"
@@ -115,27 +130,66 @@ process_tweet() {
   [ "$FETCH_FMT" = "markdown" ] && gen_args+=("--url" "$url")
 
   local note_json
-  note_json=$(python3 "$LIB_DIR/note-generator.py" "${gen_args[@]}" 2>/dev/null) || {
+  note_json=$(python3 "$LIB_DIR/note-generator.py" "${gen_args[@]}" 2>&1) || {
     warn "[$index/$total] Note generation failed: $url"
+    warn "  Detail: $note_json"
     rm -f "$tmpdata"
     return 1
   }
 
   rm -f "$tmpdata"
 
-  # Parse note-generator output
+  # Parse ALL note-generator output in a single Python call (avoids 4× JSON parsing)
+  local parsed
+  parsed=$(echo "$note_json" | python3 - << 'PYEOF'
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    # Validate required keys are present and non-empty
+    title = d.get("title", "").strip()
+    folder = d.get("folder", "").strip()
+    note = d.get("note", "").strip()
+    linked = d.get("linked_urls", [])
+    if not title or not folder or not note:
+        print("ERROR: missing required field in note-generator output", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps({"title": title, "folder": folder, "note": note, "linked_urls": linked}))
+except (json.JSONDecodeError, KeyError) as e:
+    print(f"ERROR: {e}", file=sys.stderr)
+    sys.exit(1)
+PYEOF
+  ) || {
+    warn "[$index/$total] Failed to parse note output: $url"
+    return 1
+  }
+
   local title folder note linked_urls_json
-  title=$(echo "$note_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['title'])")
-  folder=$(echo "$note_json" | python3 -c "import json,sys; print(json.load(sys.stdin)['folder'])")
-  note=$(echo "$note_json"  | python3 -c "import json,sys; print(json.load(sys.stdin)['note'])")
-  linked_urls_json=$(echo "$note_json" | python3 -c \
-    "import json,sys; print(json.dumps(json.load(sys.stdin).get('linked_urls',[])))")
+  title=$(echo "$parsed"          | python3 -c "import json,sys; print(json.load(sys.stdin)['title'])")
+  folder=$(echo "$parsed"         | python3 -c "import json,sys; print(json.load(sys.stdin)['folder'])")
+  note=$(echo "$parsed"           | python3 -c "import json,sys; print(json.load(sys.stdin)['note'])")
+  linked_urls_json=$(echo "$parsed" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['linked_urls']))")
+
+  # Validate extracted fields
+  if [ -z "$title" ] || [ -z "$folder" ]; then
+    warn "[$index/$total] Empty title or folder for: $url"
+    return 1
+  fi
 
   # Write note to vault
   local safe_title folder_path filepath
   safe_title=$(sanitize_filename "$title")
   folder_path="$VAULT_ROOT/$folder"
-  mkdir -p "$folder_path"
+
+  # Ensure folder path is not empty before creating
+  if [ -z "$folder_path" ] || [ "$folder_path" = "/" ]; then
+    warn "[$index/$total] Invalid folder path for: $url"
+    return 1
+  fi
+
+  mkdir -p "$folder_path" || {
+    warn "[$index/$total] Failed to create folder: $folder_path"
+    return 1
+  }
   filepath="$folder_path/${safe_title}.md"
 
   if [ -f "$filepath" ]; then
@@ -143,7 +197,10 @@ process_tweet() {
     return 0
   fi
 
-  printf "%s" "$note" > "$filepath"
+  printf "%s" "$note" > "$filepath" || {
+    warn "[$index/$total] Failed to write note: $filepath"
+    return 1
+  }
   log "[$index/$total] -> $folder/${safe_title}.md"
 
   # ── Enrichment ─────────────────────────────────────────
@@ -154,25 +211,27 @@ process_tweet() {
 
     local url_list
     url_list=$(echo "$linked_urls_json" | python3 -c \
-      "import json,sys; [print(u) for u in json.load(sys.stdin)]" 2>/dev/null || true)
+      "import json,sys; [print(u) for u in json.load(sys.stdin)]" 2>/dev/null) || url_list=""
 
-    while IFS= read -r lurl && [ $enrich_count -lt "$max_links" ]; do
-      [ -z "$lurl" ] && continue
-      local etmp
-      etmp=$(mktemp)
-      if tier2_fetch "$lurl" "$etmp" 2>/dev/null; then
-        if [ "$enrich_added" = false ]; then
-          printf "\n## Linked Content\n" >> "$filepath"
-          enrich_added=true
+    if [ -n "$url_list" ]; then
+      while IFS= read -r lurl && [ $enrich_count -lt "$max_links" ]; do
+        [ -z "$lurl" ] && continue
+        local etmp
+        etmp=$(safe_mktemp) || continue
+        if tier2_fetch "$lurl" "$etmp" 2>/dev/null; then
+          if [ "$enrich_added" = false ]; then
+            printf "\n## Linked Content\n" >> "$filepath"
+            enrich_added=true
+          fi
+          printf "\n### [%s](%s)\n\n" "$lurl" "$lurl" >> "$filepath"
+          head -60 "$etmp" >> "$filepath"
+          printf "\n" >> "$filepath"
+          enrich_count=$((enrich_count + 1))
+          log "  enriched: $lurl"
         fi
-        printf "\n### [%s](%s)\n\n" "$lurl" "$lurl" >> "$filepath"
-        head -60 "$etmp" >> "$filepath"
-        printf "\n" >> "$filepath"
-        enrich_count=$((enrich_count + 1))
-        log "  enriched: $lurl"
-      fi
-      rm -f "$etmp"
-    done <<< "$url_list"
+        rm -f "$etmp"
+      done <<< "$url_list"
+    fi
   fi
 }
 
@@ -184,6 +243,12 @@ main() {
     exit 1
   fi
 
+  # Ensure processed file's parent directory exists
+  mkdir -p "$(dirname "$PROCESSED_FILE")" || {
+    echo "Error: Cannot create directory for processed file: $PROCESSED_FILE" >&2
+    exit 1
+  }
+
   log "Loading bookmarks from: $BOOKMARKS_FILE"
   log "Vault: $VAULT_ROOT"
 
@@ -193,7 +258,7 @@ main() {
   local urls=() skipped=0
   while IFS= read -r url || [ -n "$url" ]; do
     [[ -z "$url" || "$url" == \#* ]] && continue
-    url=$(echo "$url" | sed 's|twitter\.com|x.com|' | tr -d '[:space:]')
+    url=$(normalize_url "$url")
     if echo "$known_urls" | grep -qF "$url"; then
       skipped=$((skipped + 1))
       continue
@@ -233,11 +298,11 @@ main() {
   # Cleanup: remove processed URLs from bookmarks.txt
   if [ "$processed" -gt 0 ]; then
     local tmpf
-    tmpf=$(mktemp)
+    tmpf=$(safe_mktemp) || { warn "Cannot clean bookmarks.txt — mktemp failed"; return 0; }
     while IFS= read -r url || [ -n "$url" ]; do
       [[ -z "$url" || "$url" == \#* ]] && { echo "$url" >> "$tmpf"; continue; }
       local norm
-      norm=$(echo "$url" | sed 's|twitter\.com|x.com|' | tr -d '[:space:]')
+      norm=$(normalize_url "$url")
       if ! grep -qF "$norm" "$PROCESSED_FILE" 2>/dev/null; then
         echo "$url" >> "$tmpf"
       fi
