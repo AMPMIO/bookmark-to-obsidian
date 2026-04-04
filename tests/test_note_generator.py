@@ -34,7 +34,7 @@ class TestFmtNumber(unittest.TestCase):
     def test_thousands(self):
         self.assertEqual(fmt_number(1000), "1.0K")
         self.assertEqual(fmt_number(1500), "1.5K")
-        self.assertEqual(fmt_number(999_999), "1000.0K")
+        self.assertEqual(fmt_number(999_999), "1.0M")
 
     def test_millions(self):
         self.assertEqual(fmt_number(1_000_000), "1.0M")

@@ -130,11 +130,11 @@ def load_config(config_path: str = None) -> dict:
     with open(config_path) as f:
         raw = yaml.safe_load(f) or {}
 
-    vault      = raw.get("vault", {})
-    bookmarks  = raw.get("bookmarks", {})
-    processing = raw.get("processing", {})
-    template   = raw.get("template", {})
-    enrichment = raw.get("enrichment", {})
+    vault      = raw.get("vault") or {}
+    bookmarks  = raw.get("bookmarks") or {}
+    processing = raw.get("processing") or {}
+    template   = raw.get("template") or {}
+    enrichment = raw.get("enrichment") or {}
 
     bookmarks_dir   = _expand(bookmarks.get("dir", "~/Documents/twitter-bookmarks"))
     bookmarks_file  = bookmarks.get("file", "bookmarks.txt")

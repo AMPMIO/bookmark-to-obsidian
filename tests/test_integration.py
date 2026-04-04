@@ -63,22 +63,28 @@ _SAMPLE_TWEET_JSON = {
 
 
 class TestGenerateFromJson(unittest.TestCase):
+    def setUp(self):
+        self._temp_files: list = []
+
     def _write_json(self, data):
         """Write JSON data to a temp file; return path."""
         tf = tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w")
         json.dump(data, tf)
         tf.close()
+        self._temp_files.append(tf.name)
         return tf.name
 
     def tearDown(self):
-        # Cleanup any temp files via Path.unlink if we tracked them
-        pass
+        for path in self._temp_files:
+            try:
+                Path(path).unlink()
+            except FileNotFoundError:
+                pass
+        self._temp_files.clear()
 
     def test_basic_note_generation(self):
         path = self._write_json(_SAMPLE_TWEET_JSON)
         result = generate_from_json(path, _TEST_CFG)
-        Path(path).unlink()
-
         self.assertIn("note", result)
         self.assertIn("title", result)
         self.assertIn("folder", result)
@@ -87,21 +93,18 @@ class TestGenerateFromJson(unittest.TestCase):
     def test_category_classification(self):
         path = self._write_json(_SAMPLE_TWEET_JSON)
         result = generate_from_json(path, _TEST_CFG)
-        Path(path).unlink()
         # "python" keyword matches "Python" category
         self.assertEqual(result["folder"], "Python")
 
     def test_wikilinks_applied_in_note(self):
         path = self._write_json(_SAMPLE_TWEET_JSON)
         result = generate_from_json(path, _TEST_CFG)
-        Path(path).unlink()
         # "Python" should be linked in the note body
         self.assertIn("[[Python]]", result["note"])
 
     def test_frontmatter_tags_include_category_tags(self):
         path = self._write_json(_SAMPLE_TWEET_JSON)
         result = generate_from_json(path, _TEST_CFG)
-        Path(path).unlink()
         note = result["note"]
         self.assertIn("type/tweet", note)
         self.assertIn("source/twitter", note)
@@ -110,13 +113,11 @@ class TestGenerateFromJson(unittest.TestCase):
     def test_frontmatter_source_url(self):
         path = self._write_json(_SAMPLE_TWEET_JSON)
         result = generate_from_json(path, _TEST_CFG)
-        Path(path).unlink()
         self.assertIn('source: "https://x.com/testuser/status/12345"', result["note"])
 
     def test_engagement_included_when_enabled(self):
         path = self._write_json(_SAMPLE_TWEET_JSON)
         result = generate_from_json(path, _TEST_CFG)
-        Path(path).unlink()
         # Engagement emoji should appear in note
         self.assertIn("1.5K", result["note"])  # likes formatted
 
@@ -124,7 +125,6 @@ class TestGenerateFromJson(unittest.TestCase):
         cfg = {**_TEST_CFG, "include_engagement": False}
         path = self._write_json(_SAMPLE_TWEET_JSON)
         result = generate_from_json(path, cfg)
-        Path(path).unlink()
         # No engagement stats
         self.assertNotIn("❤️", result["note"])
 
@@ -136,16 +136,15 @@ class TestGenerateFromJson(unittest.TestCase):
         tf = tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w")
         tf.write("not valid json {{{")
         tf.close()
+        self._temp_files.append(tf.name)
         with self.assertRaises(ValueError):
             generate_from_json(tf.name, _TEST_CFG)
-        Path(tf.name).unlink()
 
     def test_non_dict_tweet_field_raises(self):
         data = {"tweet": "should be a dict, not a string"}
         path = self._write_json(data)
         with self.assertRaises(ValueError):
             generate_from_json(path, _TEST_CFG)
-        Path(path).unlink()
 
     def test_default_category_when_no_match(self):
         data = {
@@ -153,20 +152,17 @@ class TestGenerateFromJson(unittest.TestCase):
         }
         path = self._write_json(data)
         result = generate_from_json(path, _TEST_CFG)
-        Path(path).unlink()
         self.assertEqual(result["folder"], "Inbox")
 
     def test_my_notes_section_included(self):
         path = self._write_json(_SAMPLE_TWEET_JSON)
         result = generate_from_json(path, _TEST_CFG)
-        Path(path).unlink()
         self.assertIn("## My Notes", result["note"])
 
     def test_my_notes_section_excluded(self):
         cfg = {**_TEST_CFG, "include_my_notes": False}
         path = self._write_json(_SAMPLE_TWEET_JSON)
         result = generate_from_json(path, cfg)
-        Path(path).unlink()
         self.assertNotIn("## My Notes", result["note"])
 
     def test_linked_urls_extracted(self):
@@ -178,23 +174,32 @@ class TestGenerateFromJson(unittest.TestCase):
         }
         path = self._write_json(data)
         result = generate_from_json(path, _TEST_CFG)
-        Path(path).unlink()
         self.assertIn("https://example.com", result["linked_urls"])
 
 
 class TestGenerateFromMarkdown(unittest.TestCase):
+    def setUp(self):
+        self._temp_files: list = []
+
     def _write_md(self, content):
         tf = tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w")
         tf.write(content)
         tf.close()
+        self._temp_files.append(tf.name)
         return tf.name
+
+    def tearDown(self):
+        for path in self._temp_files:
+            try:
+                Path(path).unlink()
+            except FileNotFoundError:
+                pass
+        self._temp_files.clear()
 
     def test_basic_markdown_note(self):
         content = "Just released a new pip install package for Python developers."
         path = self._write_md(content)
         result = generate_from_markdown(path, _TEST_CFG, "https://x.com/user/status/99")
-        Path(path).unlink()
-
         self.assertIn("note", result)
         self.assertIn("title", result)
         self.assertEqual(result["folder"], "Python")
@@ -203,7 +208,6 @@ class TestGenerateFromMarkdown(unittest.TestCase):
         content = "Some tweet text"
         path = self._write_md(content)
         result = generate_from_markdown(path, _TEST_CFG, "https://x.com/alice/status/123")
-        Path(path).unlink()
         self.assertIn("@alice", result["note"])
 
     def test_missing_data_file_raises(self):
@@ -215,14 +219,12 @@ class TestGenerateFromMarkdown(unittest.TestCase):
         content = "Markdown Content:\n===\nActual tweet text about Python."
         path = self._write_md(content)
         result = generate_from_markdown(path, _TEST_CFG, "https://x.com/user/status/1")
-        Path(path).unlink()
         self.assertEqual(result["folder"], "Python")
 
     def test_no_tweet_url_uses_empty_source(self):
         content = "Some tweet text"
         path = self._write_md(content)
         result = generate_from_markdown(path, _TEST_CFG, None)
-        Path(path).unlink()
         self.assertIn('source: ""', result["note"])
 
 

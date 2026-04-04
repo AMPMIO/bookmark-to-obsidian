@@ -15,13 +15,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `apply_wikilinks()` — placeholder-based linking prevents shorter overlapping entities from being re-matched inside already-linked spans. Previously "React" would be double-linked inside "[[React Native]]"; now placeholders ensure each span is linked at most once.
 - `main()` in `lib/note-generator.py` — narrowed `except Exception` to `except (FileNotFoundError, ValueError)` so unexpected errors are not silently swallowed.
 
-### Changed
-- `lib/note-generator.py` — extracted `_classify_and_tag()` and `_build_frontmatter()` helpers; `generate_from_json()` and `generate_from_markdown()` now delegate to these shared helpers, eliminating duplicated classify/tag/frontmatter logic.
-- `lib/note-generator.py` — added type annotations to all public and private functions; function contracts (input/output types) are now explicit.
-- `lib/note-generator.py` — extracted `_format_engagement()`, `_build_quote_section()`, and `_build_article_section()` helpers from `generate_from_json()`; function reduced from ~102 to 61 lines; each section-building concern is now a focused, independently readable function.
-
----
-
+### Added
 - **Per-category tags** — each category in config can now include an optional `tags:` list. Tags from the matched category are merged with `template.base_tags` in the note frontmatter (union, no duplicates). Enables topic tag hierarchies (`topic/ai`, `topic/research`) per folder without changing the global template. Example:
   ```yaml
   categories:
@@ -37,6 +31,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - SKILL.md: Quick Reference section at top (minimal config → expected note frontmatter); Phase 5 extended with per-category tags pseudo-code and concrete input/output example.
 
 ### Changed
+- `lib/note-generator.py` — extracted `_classify_and_tag()` and `_build_frontmatter()` helpers; `generate_from_json()` and `generate_from_markdown()` now delegate to these shared helpers, eliminating duplicated classify/tag/frontmatter logic.
+- `lib/note-generator.py` — added type annotations to all public and private functions; function contracts (input/output types) are now explicit.
+- `lib/note-generator.py` — extracted `_format_engagement()`, `_build_quote_section()`, and `_build_article_section()` helpers from `generate_from_json()`; function reduced from ~102 to 61 lines; each section-building concern is now a focused, independently readable function.
 - `classify_tweet(text, categories, default)` now returns `(folder_name, category_tags)` — single pass replaces the previous separate `classify()` call + tag lookup.
 - `apply_wikilinks()` now sorts entities longest-first before applying. Prevents "React" from matching inside "React Native" when both are configured.
 - `generate_from_json()` and `generate_from_markdown()`: raise `FileNotFoundError` (not generic exception) if data file is missing; raise `ValueError` with parse details on malformed JSON; raise `ValueError` if the `tweet` field is not a dict (e.g. null in response).

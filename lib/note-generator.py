@@ -40,7 +40,10 @@ def fmt_number(n: int) -> str:
     if n >= 1_000_000:
         return f"{n / 1_000_000:.1f}M"
     if n >= 1_000:
-        return f"{n / 1_000:.1f}K"
+        k = round(n / 1_000, 1)
+        if k >= 1000:
+            return f"{n / 1_000_000:.1f}M"
+        return f"{k:.1f}K"
     return str(n)
 
 
@@ -242,7 +245,7 @@ def generate_from_json(data_file: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
         dt = datetime.strptime(created_at, "%a %b %d %H:%M:%S %z %Y")
         tweet_date = dt.strftime("%Y-%m-%d")
         display_date = dt.strftime("%b %d, %Y")
-    except Exception:
+    except (ValueError, TypeError):
         print(
             f"Warning: cannot parse tweet date {created_at!r}, using today's date",
             file=sys.stderr,

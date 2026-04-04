@@ -139,13 +139,12 @@ process_tweet() {
 
   rm -f "$tmpdata"
 
-  # Parse ALL note-generator output in a single Python call (avoids 4× JSON parsing)
+  # Parse and validate note-generator output, then extract all fields in one Python call
   local parsed
-  parsed=$(echo "$note_json" | python3 - << 'PYEOF'
+  parsed=$(echo "$note_json" | python3 -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
-    # Validate required keys are present and non-empty
     title = d.get("title", "").strip()
     folder = d.get("folder", "").strip()
     note = d.get("note", "").strip()
@@ -157,17 +156,23 @@ try:
 except (json.JSONDecodeError, KeyError) as e:
     print(f"ERROR: {e}", file=sys.stderr)
     sys.exit(1)
-PYEOF
-  ) || {
+') || {
     warn "[$index/$total] Failed to parse note output: $url"
     return 1
   }
 
-  local title folder note linked_urls_json
-  title=$(echo "$parsed"          | python3 -c "import json,sys; print(json.load(sys.stdin)['title'])")
-  folder=$(echo "$parsed"         | python3 -c "import json,sys; print(json.load(sys.stdin)['folder'])")
-  note=$(echo "$parsed"           | python3 -c "import json,sys; print(json.load(sys.stdin)['note'])")
-  linked_urls_json=$(echo "$parsed" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['linked_urls']))")
+  # Extract all fields in a single Python call using base64 to safely handle multi-line note
+  local _b64 title folder note linked_urls_json
+  _b64=$(echo "$parsed" | python3 -c '
+import json, sys, base64
+d = json.load(sys.stdin)
+for val in [d["title"], d["folder"], d["note"], json.dumps(d["linked_urls"])]:
+    print(base64.b64encode(val.encode()).decode())
+')
+  title=$(echo "$_b64"          | sed -n '1p' | base64 -d)
+  folder=$(echo "$_b64"         | sed -n '2p' | base64 -d)
+  note=$(echo "$_b64"           | sed -n '3p' | base64 -d)
+  linked_urls_json=$(echo "$_b64" | sed -n '4p' | base64 -d)
 
   # Validate extracted fields
   if [ -z "$title" ] || [ -z "$folder" ]; then
